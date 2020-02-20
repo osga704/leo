@@ -1,0 +1,235 @@
+<!-- 
+Author : ChungYi Fu (Kaohsiung, Taiwan)   2019/8/17 15:00
+https://www.facebook.com/francefu
+
+Try it!
+https://fustyles.github.io/webduino/TensorFlow/PoseDetection_image/PoseDetection_image.html
+-->
+<!DOCTYPE html>
+<head>
+  <title>Single Pose Detection (Image)</title>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.4"> </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"> </script>  
+</head>
+<body>
+<input type="file" id="selectimage" disabled="true"></input>
+<br>
+ScoreLimit
+<select id="scorelimit" onchange="DetectImage();">
+<option value="0">0%</option>  
+<option value="0.1">10%</option>
+<option value="0.2">20%</option>
+<option value="0.3">30%</option>
+<option value="0.4">40%</option>
+<option value="0.5" selected>50%</option>
+<option value="0.6">60%</option>
+<option value="0.7">70%</option>
+<option value="0.8">80%</option>
+<option value="0.9">90%</option>
+</select>
+<br>
+<img id="OriginImage" style="display:none">
+<img id="ShowImage">
+<canvas id="canvas" width="0" height="0"></canvas>
+<br>
+<div id="result" style="width:350px;color:red">Please wait for loading model.</div>
+  
+<script>
+var OriginImage = document.getElementById('OriginImage');
+var ShowImage = document.getElementById('ShowImage');
+var ShowImageWidth = 500;
+var canvas = document.getElementById("canvas");
+var context = canvas.getContext("2d");  
+var result = document.getElementById('result');
+var Model;
+  
+function ObjectDetect() {
+  posenet.load().then(function(net) {
+    Model = net;
+    result.innerHTML = "Please select one image.";
+    document.getElementById('selectimage').disabled = false;
+  }); 
+}
+  
+async function DetectImage() {
+  canvas.setAttribute("width", ShowImage.width);
+  canvas.setAttribute("height", ShowImage.height);  
+  context.drawImage(ShowImage,0,0,ShowImage.width,ShowImage.height);  
+  var s = (ShowImage.width>ShowImage.height)?ShowImage.width:ShowImage.height;
+  
+  await Model.estimateSinglePose(canvas, {flipHorizontal: false}).then(pose => {
+    console.log(pose);
+    //console.log(pose.keypoints);
+    result.innerHTML = "";
+    var scoreLimit = Number(document.getElementById("scorelimit").value);
+
+    if (pose.keypoints.length>0) {
+      for (var i=0;i<pose.keypoints.length;i++) {
+        if (pose.keypoints[i].score>=scoreLimit) {
+          const x = pose.keypoints[i].position.x;
+          const y = pose.keypoints[i].position.y;
+          context.fillStyle="#00FFFF";
+          context.beginPath();
+          context.arc(x, y, Math.round(s/200), 0,2*Math.PI);
+          context.closePath();
+          context.fill();
+        }      
+        result.innerHTML += pose.keypoints[i].part + ", " + Math.round(pose.keypoints[i].score*100) + "%, " + Math.round(pose.keypoints[i].position.x) + ", " + Math.round(pose.keypoints[i].position.y) + "<br>";
+      }
+      
+      var centerShoulderX = (pose.keypoints[5].position.x+pose.keypoints[6].position.x)/2;
+      var centerShoulderY = (pose.keypoints[5].position.y+pose.keypoints[6].position.y)/2; 
+      if (pose.keypoints[5].score>=scoreLimit&&pose.keypoints[6].score>=scoreLimit) {
+        context.beginPath();
+        context.arc(centerShoulderX, centerShoulderY, 3, 0,2*Math.PI);
+        context.closePath();
+        context.fill();
+      }
+      if (pose.keypoints[0].score>=scoreLimit) {
+        context.strokeStyle = "#0000FF";
+        context.beginPath();
+        context.moveTo(pose.keypoints[0].position.x,pose.keypoints[0].position.y);
+        context.lineTo(centerShoulderX, centerShoulderY);
+        context.stroke();              
+      }
+      if (pose.keypoints[5].score>=scoreLimit) {          
+        context.strokeStyle = "#FF3333";
+        context.beginPath();
+        context.moveTo(centerShoulderX, centerShoulderY);
+        context.lineTo(pose.keypoints[5].position.x,pose.keypoints[5].position.y);
+        context.stroke();
+      }
+      if (pose.keypoints[6].score>=scoreLimit) {          
+        context.strokeStyle = "#FF8800";
+        context.beginPath();
+        context.moveTo(centerShoulderX, centerShoulderY);
+        context.lineTo(pose.keypoints[6].position.x,pose.keypoints[6].position.y);
+        context.stroke();              
+      }
+      if (pose.keypoints[5].score>=scoreLimit&&pose.keypoints[7].score>=scoreLimit) {          
+        context.strokeStyle = "#FFCC22";
+        context.beginPath();
+        context.moveTo(pose.keypoints[5].position.x,pose.keypoints[5].position.y);
+        context.lineTo(pose.keypoints[7].position.x,pose.keypoints[7].position.y);
+        context.stroke();
+      }
+      if (pose.keypoints[6].score>=scoreLimit&&pose.keypoints[8].score>=scoreLimit) {          
+        context.strokeStyle = "#66DD00";
+        context.beginPath();
+        context.moveTo(pose.keypoints[6].position.x,pose.keypoints[6].position.y);
+        context.lineTo(pose.keypoints[8].position.x,pose.keypoints[8].position.y);
+        context.stroke();
+      }
+      if (pose.keypoints[7].score>=scoreLimit&&pose.keypoints[9].score>=scoreLimit) {          
+        context.strokeStyle = "#55AA00";
+        context.beginPath();
+        context.moveTo(pose.keypoints[7].position.x,pose.keypoints[7].position.y);
+        context.lineTo(pose.keypoints[9].position.x,pose.keypoints[9].position.y);
+        context.stroke(); 
+      }
+      if (pose.keypoints[8].score>=scoreLimit&&pose.keypoints[10].score>=scoreLimit) {          
+        context.strokeStyle = "#00BBFF";
+        context.beginPath();
+        context.moveTo(pose.keypoints[8].position.x,pose.keypoints[8].position.y);
+        context.lineTo(pose.keypoints[10].position.x,pose.keypoints[10].position.y);
+        context.stroke();   
+      }
+      if (pose.keypoints[11].score>=scoreLimit) {          
+        context.strokeStyle = "#227700";
+        context.beginPath();
+        context.moveTo(centerShoulderX, centerShoulderY);
+        context.lineTo(pose.keypoints[11].position.x,pose.keypoints[11].position.y);
+        context.stroke(); 
+      }
+      if (pose.keypoints[12].score>=scoreLimit) {          
+        context.strokeStyle = "#9999FF";
+        context.beginPath();
+        context.moveTo(centerShoulderX, centerShoulderY);
+        context.lineTo(pose.keypoints[12].position.x,pose.keypoints[12].position.y);
+        context.stroke();    
+      }
+      if (pose.keypoints[11].score>=scoreLimit&&pose.keypoints[13].score>=scoreLimit) {          
+        context.strokeStyle = "#77FF00";
+        context.beginPath();
+        context.moveTo(pose.keypoints[11].position.x,pose.keypoints[11].position.y);
+        context.lineTo(pose.keypoints[13].position.x,pose.keypoints[13].position.y);
+        context.stroke(); 
+      }
+      if (pose.keypoints[12].score>=scoreLimit&&pose.keypoints[14].score>=scoreLimit) {          
+        context.strokeStyle = "#0066FF";
+        context.beginPath();
+        context.moveTo(pose.keypoints[12].position.x,pose.keypoints[12].position.y);
+        context.lineTo(pose.keypoints[14].position.x,pose.keypoints[14].position.y);
+        context.stroke();  
+      }
+      if (pose.keypoints[13].score>=scoreLimit&&pose.keypoints[15].score>=scoreLimit) {          
+        context.strokeStyle = "#99FF99";
+        context.beginPath();
+        context.moveTo(pose.keypoints[13].position.x,pose.keypoints[13].position.y);
+        context.lineTo(pose.keypoints[15].position.x,pose.keypoints[15].position.y);
+        context.stroke(); 
+      }
+      if (pose.keypoints[14].score>=scoreLimit&&pose.keypoints[16].score>=scoreLimit) {          
+        context.strokeStyle = "#0000CC";
+        context.beginPath();
+        context.moveTo(pose.keypoints[14].position.x,pose.keypoints[14].position.y);
+        context.lineTo(pose.keypoints[16].position.x,pose.keypoints[16].position.y);
+        context.stroke(); 
+      }
+    }
+    else
+      result.innerHTML = "Unrecognizable";
+  });
+}
+    
+document.getElementById('selectimage').onchange = function (event) {
+  var target = event.target || window.event.srcElement;
+  var files = target.files;
+  if (FileReader && files && files.length) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      result.innerHTML = "Loading image to detect...";
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.setAttribute("width", 0);
+      canvas.setAttribute("height", 0);      
+      OriginImage.src = fr.result;
+    }
+    fr.readAsDataURL(files[0]);
+  }
+}
+  
+document.getElementById('OriginImage').onload = function (event) {
+  try { 
+    document.createEvent("TouchEvent"); 
+    var width = document.body.clientWidth;
+  }
+  catch(e) { 
+    var width = ShowImageWidth;
+  } 
+  
+  if (OriginImage.height<OriginImage.width) {
+    var height = width*OriginImage.height/OriginImage.width; 
+  }
+  else {
+    var height = width;
+    width = height*OriginImage.width/OriginImage.height; 
+  }
+  
+  var height = width*OriginImage.height/OriginImage.width;
+  ShowImage.width = width;
+  ShowImage.height = height;  
+  ShowImage.src = OriginImage.src;
+}
+  
+document.getElementById('ShowImage').onload = function (event) {
+  if (Model) DetectImage();
+}
+  
+window.onload = function () { ObjectDetect(); }
+</script>
+
+</body>
+</html>

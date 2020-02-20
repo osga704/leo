@@ -1,0 +1,253 @@
+<!-- 
+Author : ChungYi Fu (Kaohsiung, Taiwan)   2019/6/10
+https://www.facebook.com/francefu
+
+Try it!
+https://fustyles.github.io/webduino/TensorFlow/DigitRecognition_knn-classifier/DigitRecognition_knn-classifier.html
+-->
+
+<html>
+  <head>
+    <title>Machine Learning (knn-classifier)</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">  
+    <meta http-equiv="Access-Control-Allow-Origin" content="*">
+    <meta http-equiv="Access-Control-Request-Method" content="*">
+    <meta http-equiv="Access-Control-Allow-Headers" content="*">    
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Load MobileNet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <!-- Load KNN classifier -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+ </head>
+
+ <body>
+   <button id="SelectTrain" style="width:145px;">Select images to train</button>
+   <button id="SelectLoad" style="width:165px;">Select one image to load</button><br>
+   <button id="SaveModel" style="width:100px;">Save Model</button>
+   <input type="file" id="selectimage_train" multiple="true" style="display:none;"></input>
+   <input type="file" id="selectimage_load" style="display:none;"></input>
+   <input type="file" id="getModel"></input><br>
+   <button id="clearAllClasses" style="width:150px;">Clear All Classes</button>&nbsp;&nbsp;&nbsp;&nbsp;
+   <button id="addExample" style="width:50px;">Train</button>
+   <select id="Class"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option></select>&nbsp;&nbsp;&nbsp;&nbsp;
+   <span id="count" style="font-size:18px;color:red">0</span><br>
+   <canvas id="canvas" width="300" height="300" style="background-color:#000000;"></canvas><br>
+   <button id="clear" style="Clear Canvas" style="width:100px;">Clear Canvas</button>
+   <div id="result" style="color:red">Please wait for loading model.</div>
+   <img id="example" style="display:none">
+   <span id="test" style="font-size:12px;color:red"></span>
+ </body>
+
+ <script>
+    var canvas = document.getElementById("canvas");
+    var context = canvas.getContext("2d"); 
+    var clear = document.getElementById("clear");
+    var predictClass = document.getElementById("predictClass");
+    var clearAllClasses = document.getElementById("clearAllClasses");
+    var addExample = document.getElementById("addExample");
+    var example = document.getElementById("example");
+    var Class = document.getElementById("Class");
+    var selectimage_train = document.getElementById("selectimage_train");
+    var selectimage_load = document.getElementById("selectimage_load");
+    var SelectTrain = document.getElementById("SelectTrain");
+    var SelectLoad = document.getElementById("SelectLoad");
+    var SaveModel = document.getElementById("SaveModel");
+    
+    var drawState = false;
+    var x0, y0;
+ 
+    function canvas_mousedown(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      x0 = e.offsetX;
+      y0 = e.offsetY;
+      drawState = drawState != true;
+    };
+    canvas.addEventListener("mousedown", canvas_mousedown, true);
+
+    function canvas_mousemove(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (drawState == true) {
+        context.strokeStyle = "#ffffff";
+        context.lineWidth = 5;
+        context.beginPath();
+        context.moveTo(x0,y0);
+        context.lineTo(e.offsetX,e.offsetY);
+        context.stroke();
+      }
+      x0 = e.offsetX;
+      y0 = e.offsetY;
+    };
+    canvas.addEventListener("mousemove", canvas_mousemove, true);
+
+    function SaveModel_onclick (event) {
+      saveModel();
+    };
+    SaveModel.addEventListener("click", SaveModel_onclick, true);  
+
+    function clear_onclick (event) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    clear.addEventListener("click", clear_onclick, true);    
+    
+    function predictClass_onclick (event) {
+      example.onload = function () {
+        predictClass(example);
+      }
+      example.src = canvas.toDataURL('image/jpeg');
+    };
+   
+    function clearAllClasses_onclick (event) {
+      result.innerHTML = "";
+      count.innerHTML = "0";
+      classifier.clearAllClasses();
+    };
+    clearAllClasses.addEventListener("click", clearAllClasses_onclick, true); 
+    
+    function addExample_onclick (event) {
+      example.src = canvas.toDataURL('image/jpeg');
+      addExampleImage(example, Number(Class.value));
+      count.innerHTML = Number(count.innerHTML)+1;
+    };
+    addExample.addEventListener("click", addExample_onclick, true); 
+    
+    function SelectTrain_onclick (event) {
+      selectimage_train.click();
+    };
+    SelectTrain.addEventListener("click", SelectTrain_onclick, true); 
+    
+    function SelectLoad_onclick (event) {
+      selectimage_load.click();
+    };
+    SelectLoad.addEventListener("click", SelectLoad_onclick, true);
+  </script>
+  
+  <script>
+    var classifier;
+    var mobilenetModule;
+    
+    // Create the classifier.
+    classifier = knnClassifier.create();
+    
+    // Load mobilenet.
+    mobilenet.load().then(Module => {
+      mobilenetModule = Module;
+      result.innerHTML = "";
+      setInterval(function(){ predictClass_onclick(); }, 200);
+    }); 
+    
+    function addExampleImage(img,index) {
+      // Add MobileNet activations to the model repeatedly for all Classes.
+      var Image = tf.browser.fromPixels(img);
+      var logits = mobilenetModule.infer(Image, 'conv_preds');
+      classifier.addExample(logits, index);
+    }
+    
+    async function predictClass(img) {
+      try
+      {
+        // Make a prediction.
+        const Image = tf.browser.fromPixels(img);
+        const xlogits = mobilenetModule.infer(Image, 'conv_preds');
+        const predict = await classifier.predictClass(xlogits);
+        //console.log(predict);
+        if (predict.label) {
+          var r = "<font color='red'>Result : class " + predict.label + "</font><br><br>";;
+          for (i=0;i<Class.length;i++) {
+            if (predict.confidences[i.toString()]>=0) r += "[train "+i+"] " + predict.confidences[i.toString()] + "<br>";
+          }
+          result.innerHTML = r; 
+        }
+      }
+      catch (e)
+      {
+      }
+    }
+    
+    var files;
+    selectimage_train.onchange = function (event) {
+      var target = event.target || window.event.srcElement;
+      files = target.files;
+      if (files.length>0) 
+        ImportMultiFiles(files);
+    }
+    
+    function ImportMultiFiles() {
+      function ImportOneFile(n) {
+        var fr = new FileReader();
+        fr.onload = function() { 
+          var img = new Image();
+          img.onload = function () {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(img,0,0,img.width,img.height,0,0,canvas.width,canvas.height);
+            addExample.click();
+            if (n<(files.length-1)) {
+              setTimeout(function(){ ImportOneFile(n+1); }, 1000);
+            }
+            else {
+              file = null;
+              return;
+            }
+          }
+          img.src = fr.result;
+        }
+        fr.readAsDataURL(files[n]);
+      }
+      ImportOneFile(0);
+    }
+    
+    selectimage_load.onchange = function (event) {
+      var target = event.target || window.event.srcElement;
+      var files = target.files;
+      if (FileReader && files && files.length) {
+        var fr = new FileReader();
+        fr.onload = function () {
+          var img = new Image();
+          img.onload = function () {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(img,0,0,img.width,img.height,0,0,canvas.width,canvas.height);
+          }
+          img.src = fr.result;
+        }
+        fr.readAsDataURL(files[0]);
+      }
+    }
+    
+    function saveModel() {
+      let dataset = classifier.getClassifierDataset();
+      let myDataset = {}
+      Object.keys(dataset).forEach((key) => {
+        let data = dataset[key].dataSync();
+        myDataset[key] = Array.from(data);
+      });
+      let json = JSON.stringify(myDataset)
+      
+      var link = document.createElement('a');
+      link.download="model.json";
+      link.href='data:text/json;charset=utf-8,' + encodeURIComponent(json);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+    
+    document.getElementById('getModel').onchange = function (event) {
+      var target = event.target || window.event.srcElement;
+      var files = target.files;
+      var fr = new FileReader();
+      if (files.length>0) {
+          fr.onload = function () {     
+            var dataset = fr.result;
+            var myDataset = JSON.parse(dataset)
+            Object.keys(myDataset).forEach((key) => {
+              myDataset[key] = tf.tensor(myDataset[key], [myDataset[key].length / 1024, 1024]);
+            })
+            classifier.setClassifierDataset(myDataset);
+          }
+          fr.readAsText(files[0]);
+        }
+      }    
+  </script>
+</html>
